@@ -4,7 +4,7 @@
  *
  *   SFNT object management (base).
  *
- * Copyright (C) 1996-2021 by
+ * Copyright (C) 1996-2022 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -360,17 +360,27 @@
       FT_FRAME_END
     };
 
+#ifndef FT_CONFIG_OPTION_USE_BROTLI
+    FT_UNUSED( face_instance_index );
+    FT_UNUSED( woff2_num_faces );
+#endif
+
 
     face->ttc_header.tag     = 0;
     face->ttc_header.version = 0;
     face->ttc_header.count   = 0;
 
+#if defined( FT_CONFIG_OPTION_USE_ZLIB )   || \
+    defined( FT_CONFIG_OPTION_USE_BROTLI )
   retry:
+#endif
+
     offset = FT_STREAM_POS();
 
     if ( FT_READ_ULONG( tag ) )
       return error;
 
+#ifdef FT_CONFIG_OPTION_USE_ZLIB
     if ( tag == TTAG_wOFF )
     {
       FT_TRACE2(( "sfnt_open_font: file is a WOFF; synthesizing SFNT\n" ));
@@ -386,7 +396,9 @@
       stream = face->root.stream;
       goto retry;
     }
+#endif
 
+#ifdef FT_CONFIG_OPTION_USE_BROTLI
     if ( tag == TTAG_wOF2 )
     {
       FT_TRACE2(( "sfnt_open_font: file is a WOFF2; synthesizing SFNT\n" ));
@@ -405,6 +417,7 @@
       stream = face->root.stream;
       goto retry;
     }
+#endif
 
     if ( tag != 0x00010000UL &&
          tag != TTAG_ttcf    &&
@@ -983,6 +996,10 @@
       LOAD_( colr );
     }
 
+    /* OpenType-SVG glyph support */
+    if ( sfnt->load_svg )
+      LOAD_( svg );
+
     /* consider the pclt, kerning, and gasp tables as optional */
     LOAD_( pclt );
     LOAD_( gasp );
@@ -1403,6 +1420,12 @@
         sfnt->free_cpal( face );
         sfnt->free_colr( face );
       }
+
+#ifdef FT_CONFIG_OPTION_SVG
+      /* free SVG data */
+      if ( sfnt->free_svg )
+        sfnt->free_svg( face );
+#endif
     }
 
 #ifdef TT_CONFIG_OPTION_BDF

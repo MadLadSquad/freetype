@@ -4,7 +4,7 @@
  *
  *   PostScript hinting algorithm (body).
  *
- * Copyright (C) 2001-2021 by
+ * Copyright (C) 2001-2022 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used
@@ -182,13 +182,13 @@
     count = hints->num_hints;
 
     /* allocate our tables */
-    if ( FT_NEW_ARRAY( table->sort,  2 * count     ) ||
-         FT_NEW_ARRAY( table->hints,     count     ) ||
-         FT_NEW_ARRAY( table->zones, 2 * count + 1 ) )
+    if ( FT_QNEW_ARRAY( table->sort,  2 * count     ) ||
+         FT_QNEW_ARRAY( table->hints,     count     ) ||
+         FT_QNEW_ARRAY( table->zones, 2 * count + 1 ) )
       goto Exit;
 
     table->max_hints   = count;
-    table->sort_global = table->sort + count;
+    table->sort_global = FT_OFFSET( table->sort, count );
     table->num_hints   = 0;
     table->num_zones   = 0;
     table->zone        = NULL;
@@ -1050,12 +1050,12 @@
   }
 
 
-  static int
+  static PSH_Dir
   psh_compute_dir( FT_Pos  dx,
                    FT_Pos  dy )
   {
-    FT_Pos  ax, ay;
-    int     result = PSH_DIR_NONE;
+    FT_Pos   ax, ay;
+    PSH_Dir  result = PSH_DIR_NONE;
 
 
     ax = FT_ABS( dx );
@@ -1167,8 +1167,8 @@
     memory = glyph->memory = globals->memory;
 
     /* allocate and setup points + contours arrays */
-    if ( FT_NEW_ARRAY( glyph->points,   outline->n_points   ) ||
-         FT_NEW_ARRAY( glyph->contours, outline->n_contours ) )
+    if ( FT_QNEW_ARRAY( glyph->points,   outline->n_points   ) ||
+         FT_QNEW_ARRAY( glyph->contours, outline->n_contours ) )
       goto Exit;
 
     glyph->num_points   = (FT_UInt)outline->n_points;
@@ -1228,28 +1228,29 @@
         FT_Pos  dxi, dyi, dxo, dyo;
 
 
+        point->flags = 0;
         if ( !( outline->tags[n] & FT_CURVE_TAG_ON ) )
-          point->flags = PSH_POINT_OFF;
+          psh_point_set_off( point );
 
         dxi = vec[n].x - vec[n_prev].x;
         dyi = vec[n].y - vec[n_prev].y;
 
-        point->dir_in = (FT_Char)psh_compute_dir( dxi, dyi );
+        point->dir_in = psh_compute_dir( dxi, dyi );
 
         dxo = vec[n_next].x - vec[n].x;
         dyo = vec[n_next].y - vec[n].y;
 
-        point->dir_out = (FT_Char)psh_compute_dir( dxo, dyo );
+        point->dir_out = psh_compute_dir( dxo, dyo );
 
         /* detect smooth points */
-        if ( point->flags & PSH_POINT_OFF )
-          point->flags |= PSH_POINT_SMOOTH;
+        if ( psh_point_is_off( point ) )
+          psh_point_set_smooth( point );
 
         else if ( point->dir_in == point->dir_out )
         {
           if ( point->dir_out != PSH_DIR_NONE           ||
                psh_corner_is_flat( dxi, dyi, dxo, dyo ) )
-            point->flags |= PSH_POINT_SMOOTH;
+            psh_point_set_smooth( point );
         }
       }
     }
@@ -1404,16 +1405,13 @@
   }
 
 
-  /* major_dir is the direction for points on the bottom/left of the stem; */
-  /* Points on the top/right of the stem will have a direction of          */
-  /* -major_dir.                                                           */
-
+  /* the min and max are based on contour orientation and fill rule */
   static void
   psh_hint_table_find_strong_points( PSH_Hint_Table  table,
                                      PSH_Point       point,
                                      FT_UInt         count,
                                      FT_Int          threshold,
-                                     FT_Int          major_dir )
+                                     PSH_Dir         major_dir )
   {
     PSH_Hint*  sort      = table->sort;
     FT_UInt    num_hints = table->num_hints;
@@ -1421,59 +1419,53 @@
 
     for ( ; count > 0; count--, point++ )
     {
-      FT_Int  point_dir = 0;
-      FT_Pos  org_u     = point->org_u;
+      PSH_Dir  point_dir;
+      FT_Pos   org_u = point->org_u;
 
 
       if ( psh_point_is_strong( point ) )
         continue;
 
-      if ( PSH_DIR_COMPARE( point->dir_in, major_dir ) )
-        point_dir = point->dir_in;
+      point_dir =
+        (PSH_Dir)( ( point->dir_in | point->dir_out ) & major_dir );
 
-      else if ( PSH_DIR_COMPARE( point->dir_out, major_dir ) )
-        point_dir = point->dir_out;
-
-      if ( point_dir )
+      if ( point_dir & ( PSH_DIR_DOWN | PSH_DIR_RIGHT ) )
       {
-        if ( point_dir == major_dir )
+        FT_UInt  nn;
+
+
+        for ( nn = 0; nn < num_hints; nn++ )
         {
-          FT_UInt  nn;
+          PSH_Hint  hint = sort[nn];
+          FT_Pos    d    = org_u - hint->org_pos;
 
 
-          for ( nn = 0; nn < num_hints; nn++ )
+          if ( d < threshold && -d < threshold )
           {
-            PSH_Hint  hint = sort[nn];
-            FT_Pos    d    = org_u - hint->org_pos;
-
-
-            if ( d < threshold && -d < threshold )
-            {
-              psh_point_set_strong( point );
-              point->flags2 |= PSH_POINT_EDGE_MIN;
-              point->hint    = hint;
-              break;
-            }
+            psh_point_set_strong( point );
+            point->flags2 |= PSH_POINT_EDGE_MIN;
+            point->hint    = hint;
+            break;
           }
         }
-        else if ( point_dir == -major_dir )
+      }
+      else if ( point_dir & ( PSH_DIR_UP | PSH_DIR_LEFT ) )
+      {
+        FT_UInt  nn;
+
+
+        for ( nn = 0; nn < num_hints; nn++ )
         {
-          FT_UInt  nn;
+          PSH_Hint  hint = sort[nn];
+          FT_Pos    d    = org_u - hint->org_pos - hint->org_len;
 
 
-          for ( nn = 0; nn < num_hints; nn++ )
+          if ( d < threshold && -d < threshold )
           {
-            PSH_Hint  hint = sort[nn];
-            FT_Pos    d    = org_u - hint->org_pos - hint->org_len;
-
-
-            if ( d < threshold && -d < threshold )
-            {
-              psh_point_set_strong( point );
-              point->flags2 |= PSH_POINT_EDGE_MAX;
-              point->hint    = hint;
-              break;
-            }
+            psh_point_set_strong( point );
+            point->flags2 |= PSH_POINT_EDGE_MAX;
+            point->hint    = hint;
+            break;
           }
         }
       }
@@ -1572,7 +1564,7 @@
     PS_Mask         mask      = table->hint_masks->masks;
     FT_UInt         num_masks = table->hint_masks->num_masks;
     FT_UInt         first     = 0;
-    FT_Int          major_dir = ( dimension == 0 ) ? PSH_DIR_VERTICAL
+    PSH_Dir         major_dir = ( dimension == 0 ) ? PSH_DIR_VERTICAL
                                                    : PSH_DIR_HORIZONTAL;
     PSH_Dimension   dim       = &glyph->globals->dimension[dimension];
     FT_Fixed        scale     = dim->scale_mult;
@@ -1657,8 +1649,8 @@
 
 
       /* check tangents */
-      if ( !PSH_DIR_COMPARE( point->dir_in,  PSH_DIR_HORIZONTAL ) &&
-           !PSH_DIR_COMPARE( point->dir_out, PSH_DIR_HORIZONTAL ) )
+      if ( !( point->dir_in  & PSH_DIR_HORIZONTAL ) &&
+           !( point->dir_out & PSH_DIR_HORIZONTAL ) )
         continue;
 
       /* skip strong points */
@@ -1806,7 +1798,7 @@
       FT_Error  error;
 
 
-      if ( FT_NEW_ARRAY( strongs, num_strongs ) )
+      if ( FT_QNEW_ARRAY( strongs, num_strongs ) )
         return;
     }
 
@@ -2119,14 +2111,17 @@
       FT_Fixed  old_x_scale = x_scale;
       FT_Fixed  old_y_scale = y_scale;
 
-      FT_Fixed  scaled;
-      FT_Fixed  fitted;
+      FT_Fixed  scaled = 0;
+      FT_Fixed  fitted = 0;
 
       FT_Bool  rescale = FALSE;
 
 
-      scaled = FT_MulFix( globals->blues.normal_top.zones->org_ref, y_scale );
-      fitted = FT_PIX_ROUND( scaled );
+      if ( globals->blues.normal_top.count )
+      {
+        scaled = FT_MulFix( globals->blues.normal_top.zones->org_ref, y_scale );
+        fitted = FT_PIX_ROUND( scaled );
+      }
 
       if ( fitted != 0 && scaled != fitted )
       {
