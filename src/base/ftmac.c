@@ -8,7 +8,7 @@
  * This file is for Mac OS X only; see builds/mac/ftoldmac.c for
  * classic platforms built by MPW.
  *
- * Copyright (C) 1996-2021 by
+ * Copyright (C) 1996-2022 by
  * Just van Rossum, David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -560,7 +560,7 @@
     if ( lwfn_file_name[0] )
     {
       err = lookup_lwfn_by_fond( pathname, lwfn_file_name,
-                                 buff, sizeof ( buff )  );
+                                 buff, sizeof ( buff ) );
       if ( !err )
         have_lwfn = 1;
     }

@@ -4,7 +4,7 @@
  *
  *   OpenType objects manager (body).
  *
- * Copyright (C) 1996-2021 by
+ * Copyright (C) 1996-2022 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -411,9 +411,7 @@
     FT_String*  result;
 
 
-    (void)FT_STRDUP( result, source );
-
-    FT_UNUSED( error );
+    FT_MEM_STRDUP( result, source );
 
     return result;
   }
@@ -689,13 +687,13 @@
 
         /* In Multiple Master CFFs, two SIDs hold the Normalize Design  */
         /* Vector (NDV) and Convert Design Vector (CDV) charstrings,    */
-        /* which may contain NULL bytes in the middle of the data, too. */
+        /* which may contain null bytes in the middle of the data, too. */
         /* We thus access `cff->strings' directly.                      */
         for ( idx = 1; idx < cff->num_strings; idx++ )
         {
           FT_Byte*    s1    = cff->strings[idx - 1];
           FT_Byte*    s2    = cff->strings[idx];
-          FT_PtrDist  s1len = s2 - s1 - 1; /* without the final NULL byte */
+          FT_PtrDist  s1len = s2 - s1 - 1; /* without the final null byte */
           FT_PtrDist  l;
 
 
