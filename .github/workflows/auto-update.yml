@@ -12,6 +12,8 @@ on:
     - cron: "0 11 * * *"
     - cron: "0 17 * * *"
     - cron: "0 23 * * *"
+  push:
+    branches: [master]
 
 jobs:
   Update-Fork:
@@ -35,8 +37,10 @@ jobs:
           upstream-url: "https://github.com/${{ env.REPO_NAME }}"
           first-branch: ${{ env.BRANCH }}
           second-branch: ${{ env.UPSTREAM_BRANCH }}
+      - name: Test
+        run: "echo '${{ steps.check.outputs.behind }} / ${{ steps.check.outputs.ahead }}'"
       - name: Issue
-        if: steps.check.outputs.behind > 0
+        if: steps.check.outputs.behind != 0
         uses: JasonEtco/create-an-issue@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -44,3 +48,4 @@ jobs:
           filename: .github/auto-issue-template.md
           update_existing: true
           search_existing: all
+
