@@ -481,7 +481,9 @@
       iterator->p = colr->layers + offset;
     }
 
-    if ( iterator->layer >= iterator->num_layers )
+    if ( iterator->layer >= iterator->num_layers                     ||
+         iterator->p < colr->layers                                  ||
+         iterator->p >= ( (FT_Byte*)colr->table + colr->table_size ) )
       return 0;
 
     *aglyph_index = FT_NEXT_USHORT( iterator->p );
@@ -602,9 +604,8 @@
       }
       else
       {
-        /* TODO: Direct lookup case not implemented or tested yet. */
-        FT_ASSERT( 0 );
-        return 0;
+        outer_index = 0;
+        inner_index = loop_var_index;
       }
 
       deltas[i] = mm->get_item_delta( FT_FACE( face ), &colr->var_store,
