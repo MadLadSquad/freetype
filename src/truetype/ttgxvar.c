@@ -929,15 +929,12 @@
       table = blend->hvar_table;
     }
 
-    if ( store_offset )
-    {
-      error = tt_var_load_item_variation_store(
-                face,
-                table_offset + store_offset,
-                &table->itemStore );
-      if ( error )
-        goto Exit;
-    }
+    error = tt_var_load_item_variation_store(
+              face,
+              table_offset + store_offset,
+              &table->itemStore );
+    if ( error )
+      goto Exit;
 
     if ( widthMap_offset )
     {
@@ -4503,9 +4500,12 @@
 
       if ( blend->avar_table )
       {
-        for ( i = 0; i < num_axes; i++ )
-          FT_FREE( blend->avar_table->avar_segment[i].correspondence );
-        FT_FREE( blend->avar_table->avar_segment );
+        if ( blend->avar_table->avar_segment )
+        {
+          for ( i = 0; i < num_axes; i++ )
+            FT_FREE( blend->avar_table->avar_segment[i].correspondence );
+          FT_FREE( blend->avar_table->avar_segment );
+        }
 
         tt_var_done_item_variation_store( face,
                                           &blend->avar_table->itemStore );
