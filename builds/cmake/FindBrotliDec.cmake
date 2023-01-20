@@ -1,6 +1,10 @@
 # FindBrotliDec.cmake
 #
+<<<<<<< HEAD
 # Copyright (C) 2019-2024 by
+=======
+# Copyright (C) 2019-2023 by
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # Written by Werner Lemberg <wl@gnu.org>

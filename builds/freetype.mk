@@ -3,7 +3,11 @@
 #
 
 
+<<<<<<< HEAD
 # Copyright (C) 1996-2024 by
+=======
+# Copyright (C) 1996-2023 by
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -299,7 +303,11 @@ refdoc:
                   $(PUBLIC_DIR)/config/*.h \
                   $(PUBLIC_DIR)/cache/*.h
 	@echo Building static site...
+<<<<<<< HEAD
 	cd $(DOC_DIR) && $(PYTHON) -m mkdocs build
+=======
+	cd $(DOC_DIR) && mkdocs build
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 	@echo Done.
 
 # Variables for running `refdoc' with Python's `virtualenv'.  The

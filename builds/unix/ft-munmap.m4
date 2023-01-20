@@ -1,6 +1,10 @@
 ## FreeType specific autoconf tests
 #
+<<<<<<< HEAD
 # Copyright (C) 2002-2024 by
+=======
+# Copyright (C) 2002-2023 by
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,

@@ -4,7 +4,11 @@
  *
  *   Windows-specific FreeType low-level system interface (body).
  *
+<<<<<<< HEAD
  * Copyright (C) 2021-2024 by
+=======
+ * Copyright (C) 2021-2023 by
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -196,8 +200,13 @@
   }
 
 
+<<<<<<< HEAD
   /* support for Universal Windows Platform UWP, formerly WinRT */
 #ifdef _WINRT_DLL
+=======
+  /* non-desktop Universal Windows Platform */
+#if defined( WINAPI_FAMILY ) && WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 
 #define PACK_DWORD64( hi, lo )  ( ( (DWORD64)(hi) << 32 ) | (DWORD)(lo) )
 
@@ -248,11 +257,18 @@
                         dwCreationDisposition, &createExParams );
   }
 
+<<<<<<< HEAD
 #endif  /* _WINRT_DLL */
 
 
   /* support for Windows CE */
 #ifdef _WIN32_WCE
+=======
+#endif
+
+
+#if defined( _WIN32_WCE )
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 
   /* malloc.h provides implementation of alloca()/_alloca() */
   #include <malloc.h>
@@ -292,11 +308,19 @@
                         dwFlagsAndAttributes, hTemplateFile );
   }
 
+<<<<<<< HEAD
 #endif  /* _WIN32_WCE */
 
   /* support for really old Windows */
 #if defined( _WIN32_WCE ) || defined ( _WIN32_WINDOWS ) || \
     ( defined( _WIN32_WINNT ) && _WIN32_WINNT <= 0x0400 )
+=======
+#endif
+
+
+#if defined( _WIN32_WCE ) || defined ( _WIN32_WINDOWS ) || \
+    !defined( _WIN32_WINNT ) || _WIN32_WINNT <= 0x0400
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 
   FT_LOCAL_DEF( BOOL )
   GetFileSizeEx( HANDLE          hFile,
@@ -312,7 +336,11 @@
       return TRUE;
   }
 
+<<<<<<< HEAD
 #endif  /* _WIN32_WCE || _WIN32_WINDOWS || _WIN32_WINNT <= 0x0400 */
+=======
+#endif
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 
 
   /* documentation is in ftobjs.h */

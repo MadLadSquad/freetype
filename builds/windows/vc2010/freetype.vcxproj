@@ -168,7 +168,11 @@
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
@@ -195,7 +199,11 @@
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
@@ -248,7 +256,11 @@
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
@@ -274,7 +286,11 @@
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
@@ -328,7 +344,11 @@
       <DisableLanguageExtensions>true</DisableLanguageExtensions>
       <WarningLevel>Level4</WarningLevel>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -356,7 +376,11 @@
       <DisableLanguageExtensions>true</DisableLanguageExtensions>
       <WarningLevel>Level4</WarningLevel>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
@@ -409,7 +433,11 @@
       <DisableLanguageExtensions>true</DisableLanguageExtensions>
       <WarningLevel>Level4</WarningLevel>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -435,7 +463,11 @@
       <DisableLanguageExtensions>true</DisableLanguageExtensions>
       <WarningLevel>Level4</WarningLevel>
       <CompileAs>Default</CompileAs>
+<<<<<<< HEAD
       <DisableSpecificWarnings>4001;4267</DisableSpecificWarnings>
+=======
+      <DisableSpecificWarnings>4001</DisableSpecificWarnings>
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>

@@ -4,7 +4,11 @@
  *
  *   Debugging and logging component for Win32 (body).
  *
+<<<<<<< HEAD
  * Copyright (C) 1996-2024 by
+=======
+ * Copyright (C) 1996-2023 by
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -64,7 +68,11 @@
    *    with the actual log message if set to true.
    *
    * 5. The flag `ft_timestamp_flag` prints time along with the actual log
+<<<<<<< HEAD
    *    message if set to true.
+=======
+   *    message if set to ture.
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
    *
    * 6. `ft_have_newline_char` is used to differentiate between a log
    *    message with and without a trailing newline character.

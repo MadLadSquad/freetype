@@ -28,8 +28,13 @@
 # Try to find Harfbuzz include and library directories.
 #
 # After successful discovery, this will set for inclusion where needed:
+<<<<<<< HEAD
 # HarfBuzz_INCLUDE_DIRS - containing the HarfBuzz headers
 # HarfBuzz_LIBRARIES - containing the HarfBuzz library
+=======
+# HarfBuzz_INCLUDE_DIRS - containg the HarfBuzz headers
+# HarfBuzz_LIBRARIES - containg the HarfBuzz library
+>>>>>>> 63a30c8fa (Fixed accidentally removed folder that causes compile errors)
 
 #[=======================================================================[.rst:
 FindHarfBuzz
