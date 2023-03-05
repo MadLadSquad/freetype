@@ -1267,7 +1267,7 @@
         FT_Fixed*      stack;
         FT_ListNode    node;
         CFF_T2_String  t2;
-        FT_Fixed       t2_size;
+        FT_PtrDist     t2_size;
         FT_Byte*       q;
 
 
@@ -1334,8 +1334,7 @@
 
         while ( stack < decoder.top )
         {
-          FT_ULong  num;
-          FT_Bool   neg;
+          FT_Long  num = *stack;
 
 
           if ( (FT_UInt)( parser->top - parser->stack ) >= parser->stackSize )
@@ -1343,65 +1342,35 @@
 
           *parser->top++ = q;
 
-          if ( *stack < 0 )
-          {
-            num = (FT_ULong)NEG_LONG( *stack );
-            neg = 1;
-          }
-          else
-          {
-            num = (FT_ULong)*stack;
-            neg = 0;
-          }
-
           if ( num & 0xFFFFU )
           {
-            if ( neg )
-              num = (FT_ULong)-num;
-
             *q++ = 255;
-            *q++ = ( num & 0xFF000000U ) >> 24;
-            *q++ = ( num & 0x00FF0000U ) >> 16;
-            *q++ = ( num & 0x0000FF00U ) >>  8;
-            *q++ =   num & 0x000000FFU;
+            *q++ = (FT_Byte)( ( num >> 24 ) & 0xFF );
+            *q++ = (FT_Byte)( ( num >> 16 ) & 0xFF );
+            *q++ = (FT_Byte)( ( num >>  8 ) & 0xFF );
+            *q++ = (FT_Byte)( ( num       ) & 0xFF );
           }
           else
           {
             num >>= 16;
 
-            if ( neg )
+            if ( -107 <= num && num <= 107 )
+              *q++ = (FT_Byte)( num + 139 );
+            else if ( 108 <= num && num <= 1131 )
             {
-              if ( num <= 107 )
-                *q++ = (FT_Byte)( 139 - num );
-              else if ( num <= 1131 )
-              {
-                *q++ = (FT_Byte)( ( ( num - 108 ) >> 8 ) + 251 );
-                *q++ = (FT_Byte)( ( num - 108 ) & 0xFF );
-              }
-              else
-              {
-                num = (FT_ULong)-num;
-
-                *q++ = 28;
-                *q++ = (FT_Byte)( num >> 8 );
-                *q++ = (FT_Byte)( num & 0xFF );
-              }
+              *q++ = (FT_Byte)( ( ( num - 108 ) >> 8 ) + 247 );
+              *q++ = (FT_Byte)( ( num - 108 ) & 0xFF );
+            }
+            else if ( -1131 <= num && num <= -108 )
+            {
+              *q++ = (FT_Byte)( ( ( -num - 108 ) >> 8 ) + 251 );
+              *q++ = (FT_Byte)( ( -num - 108) & 0xFF );
             }
             else
             {
-              if ( num <= 107 )
-                *q++ = (FT_Byte)( num + 139 );
-              else if ( num <= 1131 )
-              {
-                *q++ = (FT_Byte)( ( ( num - 108 ) >> 8 ) + 247 );
-                *q++ = (FT_Byte)( ( num - 108 ) & 0xFF );
-              }
-              else
-              {
-                *q++ = 28;
-                *q++ = (FT_Byte)( num >> 8 );
-                *q++ = (FT_Byte)( num & 0xFF );
-              }
+              *q++ = 28;
+              *q++ = (FT_Byte)( num >> 8 );
+              *q++ = (FT_Byte)( num & 0xFF );
             }
           }
 
