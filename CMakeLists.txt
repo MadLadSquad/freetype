@@ -1,6 +1,6 @@
 # CMakeLists.txt
 #
-# Copyright (C) 2013-2023 by
+# Copyright (C) 2013-2024 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # Written originally by John Cary <cary@txcorp.com>
@@ -110,7 +110,7 @@
 
 # To minimize the number of cmake_policy() workarounds,
 # CMake >= 3 is requested.
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.0...3.5)
 
 if (NOT CMAKE_VERSION VERSION_LESS 3.3)
   # Allow symbol visibility settings also on static libraries. CMake < 3.3
@@ -297,7 +297,7 @@ if (NOT FT_DISABLE_BROTLI)
 endif ()
 
 # Create the configuration file
-if (UNIX)
+if (UNIX AND NOT WIN32)
   check_include_file("unistd.h" HAVE_UNISTD_H)
   check_include_file("fcntl.h" HAVE_FCNTL_H)
 
@@ -423,10 +423,10 @@ set(BASE_SRCS
   src/winfonts/winfnt.c
 )
 
-if (UNIX)
-  list(APPEND BASE_SRCS "builds/unix/ftsystem.c")
-elseif (WIN32)
+if (WIN32)
   list(APPEND BASE_SRCS "builds/windows/ftsystem.c")
+elseif (UNIX)
+  list(APPEND BASE_SRCS "builds/unix/ftsystem.c")
 else ()
   list(APPEND BASE_SRCS "src/base/ftsystem.c")
 endif ()
