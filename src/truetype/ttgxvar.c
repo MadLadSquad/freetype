@@ -4,7 +4,7 @@
  *
  *   TrueType GX Font Variation loader
  *
- * Copyright (C) 2004-2023 by
+ * Copyright (C) 2004-2024 by
  * David Turner, Robert Wilhelm, Werner Lemberg, and George Williams.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -2141,7 +2141,8 @@
                                          outerIndex,
                                          innerIndex );
 
-	  v += delta << 2;
+          /* Convert to 16.16 format before adding. */
+	  v += MUL_INT( delta, 4 );
 
 	  /* Clamp value range. */
 	  v = v >=  0x10000L ?  0x10000 : v;
