@@ -596,13 +596,17 @@
 
       for ( j = 0; j < itemStore->axisCount; j++ )
       {
-        FT_Short  start, peak, end;
+        FT_Int  start, peak, end;
 
 
         if ( FT_READ_SHORT( start ) ||
              FT_READ_SHORT( peak )  ||
              FT_READ_SHORT( end )   )
           goto Exit;
+
+        /* immediately tag invalid ranges with special peak = 0 */
+        if ( ( start < 0 && end > 0 ) || start > peak || peak > end )
+          peak = 0;
 
         axisCoords[j].startCoord = FT_fdot14ToFixed( start );
         axisCoords[j].peakCoord  = FT_fdot14ToFixed( peak );
@@ -1074,43 +1078,32 @@
       /* inner loop steps through axes in this region */
       for ( j = 0; j < itemStore->axisCount; j++, axis++ )
       {
-        /* compute the scalar contribution of this axis; */
-        /* ignore invalid ranges                         */
-        if ( axis->startCoord > axis->peakCoord ||
-             axis->peakCoord > axis->endCoord   )
-          continue;
+        FT_Fixed  ncv = ttface->blend->normalizedcoords[j];
 
-        else if ( axis->startCoord < 0 &&
-                  axis->endCoord > 0   &&
-                  axis->peakCoord != 0 )
-          continue;
 
-        /* peak of 0 means ignore this axis */
-        else if ( axis->peakCoord == 0 )
-          continue;
-
-        else if ( ttface->blend->normalizedcoords[j] == axis->peakCoord )
+        /* compute the scalar contribution of this axis */
+        /* with peak of 0 used for invalid axes         */
+        if ( axis->peakCoord == ncv ||
+             axis->peakCoord == 0   )
           continue;
 
         /* ignore this region if coords are out of range */
-        else if ( ttface->blend->normalizedcoords[j] <= axis->startCoord ||
-                  ttface->blend->normalizedcoords[j] >= axis->endCoord   )
+        else if ( ncv <= axis->startCoord ||
+                  ncv >= axis->endCoord   )
         {
           scalar = 0;
           break;
         }
 
         /* cumulative product of all the axis scalars */
-        else if ( ttface->blend->normalizedcoords[j] < axis->peakCoord )
-          scalar =
-            FT_MulDiv( scalar,
-                       ttface->blend->normalizedcoords[j] - axis->startCoord,
-                       axis->peakCoord - axis->startCoord );
-        else
-          scalar =
-            FT_MulDiv( scalar,
-                       axis->endCoord - ttface->blend->normalizedcoords[j],
-                       axis->endCoord - axis->peakCoord );
+        else if ( ncv < axis->peakCoord )
+          scalar = FT_MulDiv( scalar,
+                              ncv - axis->startCoord,
+                              axis->peakCoord - axis->startCoord );
+        else   /* ncv > axis->peakCoord */
+          scalar = FT_MulDiv( scalar,
+                              axis->endCoord - ncv,
+                              axis->endCoord - axis->peakCoord );
 
       } /* per-axis loop */
 
