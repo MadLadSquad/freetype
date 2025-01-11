@@ -1115,8 +1115,7 @@
 
 
     /* First, check whether the property already exists in the font. */
-    if ( ( propid = ft_hash_str_lookup( name,
-                                        (FT_Hash)font->internal ) ) != NULL )
+    if ( ( propid = ft_hash_str_lookup( name, font->internal ) ) != NULL )
     {
       /* The property already exists in the font, so simply replace */
       /* the value of the property with the current value.          */
@@ -1210,7 +1209,7 @@
       /* Add the property to the font property table. */
       error = ft_hash_str_insert( fp->name,
                                   font->props_used,
-                                  (FT_Hash)font->internal,
+                                  font->internal,
                                   memory );
       if ( error )
         goto Exit;
@@ -1284,27 +1283,21 @@
                      void*          call_data,
                      void*          client_data )
   {
+    bdf_line_func_t_*  next = (bdf_line_func_t_ *)call_data;
+    bdf_parse_t_*      p    = (bdf_parse_t_ *)    client_data;
+    bdf_font_t*        font = p->font;
+    bdf_glyph_t*       glyph;
+
+    FT_Memory          memory = font->memory;
+    FT_Error           error  = FT_Err_Ok;
+
     int                c, mask_index;
     char*              s;
     unsigned char*     bp;
     unsigned long      i, slen, nibbles;
 
-    bdf_line_func_t_*  next;
-    bdf_parse_t_*      p;
-    bdf_glyph_t*       glyph;
-    bdf_font_t*        font;
-
-    FT_Memory          memory;
-    FT_Error           error = FT_Err_Ok;
-
     FT_UNUSED( lineno );        /* only used in debug mode */
 
-
-    next = (bdf_line_func_t_ *)call_data;
-    p    = (bdf_parse_t_ *)    client_data;
-
-    font   = p->font;
-    memory = font->memory;
 
     /* Check for a comment. */
     if ( _bdf_strncmp( line, "COMMENT", 7 ) == 0 )
@@ -1763,19 +1756,18 @@
                          void*          call_data,
                          void*          client_data )
   {
+    bdf_line_func_t_*  next = (bdf_line_func_t_ *)call_data;
+    bdf_parse_t_*      p    = (bdf_parse_t_ *)    client_data;
+
+    FT_Error           error = FT_Err_Ok;
+
     unsigned long      vlen;
-    bdf_line_func_t_*  next;
-    bdf_parse_t_*      p;
     char*              name;
     char*              value;
     char               nbuf[BUFSIZE];
-    FT_Error           error = FT_Err_Ok;
 
     FT_UNUSED( lineno );
 
-
-    next = (bdf_line_func_t_ *)call_data;
-    p    = (bdf_parse_t_ *)    client_data;
 
     /* Check for the end of the properties. */
     if ( _bdf_strncmp( line, "ENDPROPERTIES", 13 ) == 0 )
@@ -1866,23 +1858,17 @@
                     void*          call_data,
                     void*          client_data )
   {
-    unsigned long      slen;
-    bdf_line_func_t_*  next;
-    bdf_parse_t_*      p;
-    bdf_font_t*        font;
-    char               *s;
+    bdf_line_func_t_*  next = (bdf_line_func_t_ *)call_data;
+    bdf_parse_t_*      p    = (bdf_parse_t_ *)    client_data;
 
-    FT_Memory          memory = NULL;
+    FT_Memory          memory = p->memory;
     FT_Error           error  = FT_Err_Ok;
+
+    unsigned long      slen;
+    char               *s;
 
     FT_UNUSED( lineno );            /* only used in debug mode */
 
-
-    next = (bdf_line_func_t_ *)call_data;
-    p    = (bdf_parse_t_ *)    client_data;
-
-    if ( p->font )
-      memory = p->font->memory;
 
     /* Check for a comment.  This is done to handle those fonts that have */
     /* comments before the STARTFONT line for some reason.                */
@@ -1905,8 +1891,6 @@
 
     if ( !( p->flags & BDF_START_ ) )
     {
-      memory = p->memory;
-
       if ( _bdf_strncmp( line, "STARTFONT", 9 ) != 0 )
       {
         /* we don't emit an error message since this code gets */
@@ -1916,35 +1900,32 @@
       }
 
       p->flags = BDF_START_;
-      font = p->font = NULL;
 
-      if ( FT_NEW( font ) )
+      if ( FT_NEW( p->font ) )
         goto Exit;
-      p->font = font;
 
-      font->memory = p->memory;
+      p->font->memory = memory;
 
       { /* setup */
+        bdf_property_t*  prop    = (bdf_property_t*)bdf_properties_;
+        FT_Hash          proptbl = &p->font->proptbl;
         size_t           i;
-        bdf_property_t*  prop;
 
 
-        error = ft_hash_str_init( &(font->proptbl), memory );
+        error = ft_hash_str_init( proptbl, memory );
         if ( error )
           goto Exit;
-        for ( i = 0, prop = (bdf_property_t*)bdf_properties_;
-              i < num_bdf_properties_; i++, prop++ )
+        for ( i = 0; i < num_bdf_properties_; i++, prop++ )
         {
-          error = ft_hash_str_insert( prop->name, i,
-                                      &(font->proptbl), memory );
+          error = ft_hash_str_insert( prop->name, i, proptbl, memory );
           if ( error )
             goto Exit;
         }
       }
 
-      if ( FT_QALLOC( p->font->internal, sizeof ( FT_HashRec ) ) )
+      if ( FT_QNEW( p->font->internal ) )
         goto Exit;
-      error = ft_hash_str_init( (FT_Hash)p->font->internal, memory );
+      error = ft_hash_str_init( p->font->internal, memory );
       if ( error )
         goto Exit;
       p->font->spacing      = p->opts->font_spacing;
@@ -2311,7 +2292,7 @@
     /* Free up the internal hash table of property names. */
     if ( font->internal )
     {
-      ft_hash_str_free( (FT_Hash)font->internal, memory );
+      ft_hash_str_free( font->internal, memory );
       FT_FREE( font->internal );
     }
 
@@ -2369,7 +2350,7 @@
     if ( font == NULL || font->props_size == 0 || name == NULL || *name == 0 )
       return 0;
 
-    propid = ft_hash_str_lookup( name, (FT_Hash)font->internal );
+    propid = ft_hash_str_lookup( name, font->internal );
 
     return propid ? ( font->props + *propid ) : 0;
   }
