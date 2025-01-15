@@ -56,22 +56,6 @@
 
   /**************************************************************************
    *
-   * Default BDF font options.
-   *
-   */
-
-
-  static const bdf_options_t  bdf_opts_ =
-  {
-    1,                /* Correct metrics.               */
-    1,                /* Preserve unencoded glyphs.     */
-    0,                /* Preserve comments.             */
-    BDF_PROPORTIONAL  /* Default spacing.               */
-  };
-
-
-  /**************************************************************************
-   *
    * Builtin BDF font properties.
    *
    */
@@ -270,7 +254,6 @@
 
     bdf_glyph_t*    glyph;
     bdf_font_t*     font;
-    bdf_options_t*  opts;
 
     bdf_list_t_     list;
 
@@ -526,8 +509,8 @@
   {
     bdf_line_func_t_  cb;
     unsigned long     lineno, buf_size;
-    int               refill, hold, to_skip;
-    ptrdiff_t         bytes, start, end, cursor, avail;
+    int               hold, to_skip;
+    unsigned long     bytes, start, end, cursor, avail;
     char*             buf    = NULL;
     FT_Memory         memory = stream->memory;
     FT_Error          error  = FT_Err_Ok;
@@ -549,26 +532,16 @@
     lineno  = 1;
     buf[0]  = 0;
     start   = 0;
-    avail   = 0;
     cursor  = 0;
-    refill  = 1;
     to_skip = NO_SKIP;
-    bytes   = 0;        /* make compiler happy */
+
+  Refill:
+    bytes  = FT_Stream_TryRead( stream,
+                                (FT_Byte*)buf + cursor, buf_size - cursor );
+    avail  = cursor + bytes;
 
     for (;;)
     {
-      if ( refill )
-      {
-        bytes  = (ptrdiff_t)FT_Stream_TryRead(
-                   stream, (FT_Byte*)buf + cursor,
-                   buf_size - (unsigned long)cursor );
-        avail  = cursor + bytes;
-        cursor = 0;
-        refill = 0;
-      }
-
-      end = start;
-
       /* should we skip an optional character like \n or \r? */
       if ( start < avail && buf[start] == to_skip )
       {
@@ -578,6 +551,7 @@
       }
 
       /* try to find the end of the line */
+      end = start;
       while ( end < avail && buf[end] != '\n' && buf[end] != '\r' )
         end++;
 
@@ -622,15 +596,13 @@
         }
         else
         {
-          bytes = avail - start;
+          cursor = avail - start;
 
-          FT_MEM_MOVE( buf, buf + start, bytes );
+          FT_MEM_MOVE( buf, buf + start, cursor );
 
-          cursor = bytes;
           start  = 0;
         }
-        refill = 1;
-        continue;
+        goto Refill;
       }
 
       /* Temporarily NUL-terminate the line. */
@@ -640,12 +612,8 @@
       /* XXX: Use encoding independent value for 0x1A */
       if ( buf[start] != '#' && buf[start] != 0x1A && end > start )
       {
-        error = (*cb)( buf + start, (unsigned long)( end - start ), lineno,
+        error = (*cb)( buf + start, end - start, lineno,
                        (void*)&cb, client_data );
-        /* Redo if we have encountered CHARS without properties. */
-        if ( error == -1 )
-          error = (*cb)( buf + start, (unsigned long)( end - start ), lineno,
-                         (void*)&cb, client_data );
         if ( error )
           break;
       }
@@ -969,11 +937,10 @@
   }
 
 
-  /* Set the spacing from the font name if it exists, or set it to the */
-  /* default specified in the options.                                 */
+  /* Set the spacing from the font name if it exists, */
+  /* or use default                                   */
   static FT_Error
   bdf_set_default_spacing_( bdf_font_t*     font,
-                            bdf_options_t*  opts,
                             unsigned long   lineno )
   {
     size_t       len;
@@ -995,7 +962,7 @@
 
     bdf_list_init_( &list, memory );
 
-    font->spacing = opts->font_spacing;
+    font->spacing = BDF_PROPORTIONAL;  /* default */
 
     len = ft_strlen( font->name ) + 1;
     /* Limit ourselves to 256 characters in the font name. */
@@ -1118,7 +1085,8 @@
 
 
     /* First, check whether the property already exists in the font. */
-    if ( ( propid = ft_hash_str_lookup( name, font->internal ) ) != NULL )
+    if ( font->props_used                                                &&
+         ( propid = ft_hash_str_lookup( name, font->internal ) ) != NULL )
     {
       /* The property already exists in the font, so simply replace */
       /* the value of the property with the current value.          */
@@ -1253,12 +1221,6 @@
   }
 
 
-  static const unsigned char nibble_mask[8] =
-  {
-    0xFF, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE
-  };
-
-
   static FT_Error
   bdf_parse_end_( char*          line,
                   unsigned long  linelen,
@@ -1278,7 +1240,15 @@
   }
 
 
-  /* Line function prototype. */
+  /* Line function prototypes. */
+  static FT_Error
+  bdf_parse_start_( char*          line,
+                     unsigned long  linelen,
+                     unsigned long  lineno,
+                     void*          call_data,
+                     void*          client_data );
+
+
   static FT_Error
   bdf_parse_glyphs_( char*          line,
                      unsigned long  linelen,
@@ -1319,7 +1289,7 @@
     {
       /* char to hex without checks */
       x  = line[i];
-      x += ( x & 0x40 ) * 9 >> 6;  /* for [A-Fa-f] */
+      x += 9 * ( x & 0x40 ) >> 6;  /* for [A-Fa-f] */
       x &= 0x0F;
 
       if ( i & 1 )
@@ -1363,7 +1333,7 @@
     /* Check for a comment. */
     if ( _bdf_strncmp( line, "COMMENT", 7 ) == 0 )
     {
-      if ( p->opts->keep_comments )
+      if ( p->flags & BDF_KEEP_COMMENTS )
       {
         linelen -= 7;
 
@@ -1375,49 +1345,6 @@
         }
         error = bdf_add_comment_( p->font, s, linelen );
       }
-      goto Exit;
-    }
-
-    /* The very first thing expected is the number of glyphs. */
-    if ( !( p->flags & BDF_GLYPHS_ ) )
-    {
-      if ( _bdf_strncmp( line, "CHARS", 5 ) != 0 )
-      {
-        FT_ERROR(( "bdf_parse_glyphs_: " ERRMSG1, lineno, "CHARS" ));
-        error = FT_THROW( Missing_Chars_Field );
-        goto Exit;
-      }
-
-      error = bdf_list_split_( &p->list, " +", line, linelen );
-      if ( error )
-        goto Exit;
-      p->cnt = font->glyphs_size = bdf_atoul_( p->list.field[1] );
-
-      /* We need at least 20 bytes per glyph. */
-      if ( p->cnt > p->size / 20 )
-      {
-        p->cnt = font->glyphs_size = p->size / 20;
-        FT_TRACE2(( "bdf_parse_glyphs_: " ACMSG17, p->cnt ));
-      }
-
-      /* Make sure the number of glyphs is non-zero. */
-      if ( p->cnt == 0 )
-        font->glyphs_size = 64;
-
-      /* Limit ourselves to 1,114,112 glyphs in the font (this is the */
-      /* number of code points available in Unicode).                 */
-      if ( p->cnt >= 0x110000UL )
-      {
-        FT_ERROR(( "bdf_parse_glyphs_: " ERRMSG5, lineno, "CHARS" ));
-        error = FT_THROW( Invalid_Argument );
-        goto Exit;
-      }
-
-      if ( FT_NEW_ARRAY( font->glyphs, font->glyphs_size ) )
-        goto Exit;
-
-      p->flags |= BDF_GLYPHS_;
-
       goto Exit;
     }
 
@@ -1458,9 +1385,9 @@
 
     /* Check whether a glyph is being scanned but should be */
     /* ignored because it is an unencoded glyph.            */
-    if ( ( p->flags & BDF_GLYPH_ )     &&
-         p->glyph_enc            == -1 &&
-         p->opts->keep_unencoded == 0  )
+    if ( p->flags & BDF_GLYPH_              &&
+         p->glyph_enc            == -1      &&
+         !( p->flags & BDF_KEEP_UNENCODED ) )
       goto Exit;
 
     /* Check for the STARTCHAR field. */
@@ -1550,7 +1477,7 @@
         glyph->name     = p->glyph_name;
         glyph->encoding = (unsigned long)p->glyph_enc;
       }
-      else if ( p->opts->keep_unencoded )
+      else if ( p->flags & BDF_KEEP_UNENCODED )
       {
         /* Allocate the next unencoded glyph. */
         if ( font->unencoded_used == font->unencoded_size )
@@ -1667,7 +1594,7 @@
 
       /* If the BDF_CORRECT_METRICS flag is set, then adjust the SWIDTH */
       /* value if necessary.                                            */
-      if ( p->opts->correct_metrics )
+      if ( p->flags & BDF_CORRECT_METRICS )
       {
         /* Determine the point size of the glyph. */
         unsigned short  sw = (unsigned short)FT_MulDiv(
@@ -1758,7 +1685,6 @@
     unsigned long      vlen;
     char*              name;
     char*              value;
-    char               nbuf[BUFSIZE];
 
     FT_UNUSED( lineno );
 
@@ -1766,38 +1692,8 @@
     /* Check for the end of the properties. */
     if ( _bdf_strncmp( line, "ENDPROPERTIES", 13 ) == 0 )
     {
-      /* If the FONT_ASCENT or FONT_DESCENT properties have not been      */
-      /* encountered yet, then make sure they are added as properties and */
-      /* make sure they are set from the font bounding box info.          */
-      /*                                                                  */
-      /* This is *always* done regardless of the options, because X11     */
-      /* requires these two fields to compile fonts.                      */
-      if ( bdf_get_font_property( p->font, "FONT_ASCENT" ) == 0 )
-      {
-        p->font->font_ascent = p->font->bbx.ascent;
-        ft_snprintf( nbuf, BUFSIZE, "%hd", p->font->bbx.ascent );
-        error = bdf_add_property_( p->font, "FONT_ASCENT",
-                                   nbuf, lineno );
-        if ( error )
-          goto Exit;
-
-        FT_TRACE2(( "bdf_parse_properties_: " ACMSG1, p->font->bbx.ascent ));
-      }
-
-      if ( bdf_get_font_property( p->font, "FONT_DESCENT" ) == 0 )
-      {
-        p->font->font_descent = p->font->bbx.descent;
-        ft_snprintf( nbuf, BUFSIZE, "%hd", p->font->bbx.descent );
-        error = bdf_add_property_( p->font, "FONT_DESCENT",
-                                   nbuf, lineno );
-        if ( error )
-          goto Exit;
-
-        FT_TRACE2(( "bdf_parse_properties_: " ACMSG2, p->font->bbx.descent ));
-      }
-
       p->flags &= ~BDF_PROPS_;
-      *next     = bdf_parse_glyphs_;
+      *next     = bdf_parse_start_;
 
       goto Exit;
     }
@@ -1854,6 +1750,7 @@
   {
     bdf_line_func_t_*  next = (bdf_line_func_t_ *)call_data;
     bdf_parse_t_*      p    = (bdf_parse_t_ *)    client_data;
+    bdf_font_t*        font;
 
     FT_Memory          memory = p->memory;
     FT_Error           error  = FT_Err_Ok;
@@ -1868,7 +1765,7 @@
     /* comments before the STARTFONT line for some reason.                */
     if ( _bdf_strncmp( line, "COMMENT", 7 ) == 0 )
     {
-      if ( p->opts->keep_comments && p->font )
+      if ( p->flags & BDF_KEEP_COMMENTS && p->font )
       {
         linelen -= 7;
 
@@ -1922,11 +1819,14 @@
       error = ft_hash_str_init( p->font->internal, memory );
       if ( error )
         goto Exit;
-      p->font->spacing      = p->opts->font_spacing;
+      p->font->spacing      = BDF_PROPORTIONAL;
       p->font->default_char = ~0UL;
 
       goto Exit;
     }
+
+    /* Point at the font being constructed. */
+    font = p->font;
 
     /* Check for the start of the properties. */
     if ( _bdf_strncmp( line, "STARTPROPERTIES", 15 ) == 0 )
@@ -1943,21 +1843,20 @@
       if ( error )
         goto Exit;
 
-      /* at this point, `p->font' can't be NULL */
-      p->cnt = p->font->props_size = bdf_atoul_( p->list.field[1] );
+      p->cnt = font->props_size = bdf_atoul_( p->list.field[1] );
       /* We need at least 4 bytes per property. */
       if ( p->cnt > p->size / 4 )
       {
-        p->font->props_size = 0;
+        font->props_size = 0;
 
         FT_ERROR(( "bdf_parse_start_: " ERRMSG5, lineno, "STARTPROPERTIES" ));
         error = FT_THROW( Invalid_Argument );
         goto Exit;
       }
 
-      if ( FT_NEW_ARRAY( p->font->props, p->cnt ) )
+      if ( FT_NEW_ARRAY( font->props, p->cnt ) )
       {
-        p->font->props_size = 0;
+        font->props_size = 0;
         goto Exit;
       }
 
@@ -1982,16 +1881,16 @@
       if ( error )
         goto Exit;
 
-      p->font->bbx.width  = bdf_atous_( p->list.field[1] );
-      p->font->bbx.height = bdf_atous_( p->list.field[2] );
+      font->bbx.width  = bdf_atous_( p->list.field[1] );
+      font->bbx.height = bdf_atous_( p->list.field[2] );
 
-      p->font->bbx.x_offset = bdf_atos_( p->list.field[3] );
-      p->font->bbx.y_offset = bdf_atos_( p->list.field[4] );
+      font->bbx.x_offset = bdf_atos_( p->list.field[3] );
+      font->bbx.y_offset = bdf_atos_( p->list.field[4] );
 
-      p->font->bbx.ascent  = (short)( p->font->bbx.height +
-                                      p->font->bbx.y_offset );
+      font->bbx.ascent  = (short)( font->bbx.height +
+                                      font->bbx.y_offset );
 
-      p->font->bbx.descent = (short)( -p->font->bbx.y_offset );
+      font->bbx.descent = (short)( -font->bbx.y_offset );
 
       p->flags |= BDF_FONT_BBX_;
 
@@ -2016,14 +1915,14 @@
       }
 
       /* Allowing multiple `FONT' lines (which is invalid) doesn't hurt... */
-      FT_FREE( p->font->name );
+      FT_FREE( font->name );
 
-      if ( FT_DUP( p->font->name, s, slen + 1 ) )
+      if ( FT_DUP( font->name, s, slen + 1 ) )
         goto Exit;
 
       /* If the font name is an XLFD name, set the spacing to the one in  */
       /* the font name.  If there is no spacing fall back on the default. */
-      error = bdf_set_default_spacing_( p->font, p->opts, lineno );
+      error = bdf_set_default_spacing_( font, lineno );
       if ( error )
         goto Exit;
 
@@ -2047,9 +1946,9 @@
       if ( error )
         goto Exit;
 
-      p->font->point_size   = bdf_atoul_( p->list.field[1] );
-      p->font->resolution_x = bdf_atoul_( p->list.field[2] );
-      p->font->resolution_y = bdf_atoul_( p->list.field[3] );
+      font->point_size   = bdf_atoul_( p->list.field[1] );
+      font->resolution_x = bdf_atoul_( p->list.field[2] );
+      font->resolution_y = bdf_atoul_( p->list.field[3] );
 
       /* Check for the bits per pixel field. */
       if ( p->list.used == 5 )
@@ -2061,26 +1960,26 @@
 
         /* Only values 1, 2, 4, 8 are allowed for greymap fonts. */
         if ( bpp > 4 )
-          p->font->bpp = 8;
+          font->bpp = 8;
         else if ( bpp > 2 )
-          p->font->bpp = 4;
+          font->bpp = 4;
         else if ( bpp > 1 )
-          p->font->bpp = 2;
+          font->bpp = 2;
         else
-          p->font->bpp = 1;
+          font->bpp = 1;
 
-        if ( p->font->bpp != bpp )
-          FT_TRACE2(( "bdf_parse_start_: " ACMSG11, p->font->bpp ));
+        if ( font->bpp != bpp )
+          FT_TRACE2(( "bdf_parse_start_: " ACMSG11, font->bpp ));
       }
       else
-        p->font->bpp = 1;
+        font->bpp = 1;
 
       p->flags |= BDF_SIZE_;
 
       goto Exit;
     }
 
-    /* Check for the CHARS field -- font properties are optional */
+    /* Check for the CHARS field */
     if ( _bdf_strncmp( line, "CHARS", 5 ) == 0 )
     {
       char  nbuf[BUFSIZE];
@@ -2094,28 +1993,65 @@
         goto Exit;
       }
 
-      /* Add the two standard X11 properties which are required */
-      /* for compiling fonts.                                   */
-      p->font->font_ascent = p->font->bbx.ascent;
-      ft_snprintf( nbuf, BUFSIZE, "%hd", p->font->bbx.ascent );
-      error = bdf_add_property_( p->font, "FONT_ASCENT",
-                                 nbuf, lineno );
+      /* If the FONT_ASCENT or FONT_DESCENT properties have not been      */
+      /* encountered yet, then make sure they are added as properties and */
+      /* make sure they are set from the font bounding box info.          */
+      /*                                                                  */
+      /* This is *always* done regardless of the options, because X11     */
+      /* requires these two fields to compile fonts.                      */
+      if ( bdf_get_font_property( font, "FONT_ASCENT" ) == 0 )
+      {
+        font->font_ascent = font->bbx.ascent;
+        ft_snprintf( nbuf, BUFSIZE, "%hd", font->bbx.ascent );
+        error = bdf_add_property_( font, "FONT_ASCENT", nbuf, lineno );
+        if ( error )
+          goto Exit;
+
+        FT_TRACE2(( "bdf_parse_start_: " ACMSG1, font->bbx.ascent ));
+      }
+
+      if ( bdf_get_font_property( font, "FONT_DESCENT" ) == 0 )
+      {
+        font->font_descent = font->bbx.descent;
+        ft_snprintf( nbuf, BUFSIZE, "%hd", font->bbx.descent );
+        error = bdf_add_property_( font, "FONT_DESCENT", nbuf, lineno );
+        if ( error )
+          goto Exit;
+
+        FT_TRACE2(( "bdf_parse_start_: " ACMSG2, font->bbx.descent ));
+      }
+
+      error = bdf_list_split_( &p->list, " +", line, linelen );
       if ( error )
         goto Exit;
-      FT_TRACE2(( "bdf_parse_start_: " ACMSG1, p->font->bbx.ascent ));
+      p->cnt = font->glyphs_size = bdf_atoul_( p->list.field[1] );
 
-      p->font->font_descent = p->font->bbx.descent;
-      ft_snprintf( nbuf, BUFSIZE, "%hd", p->font->bbx.descent );
-      error = bdf_add_property_( p->font, "FONT_DESCENT",
-                                 nbuf, lineno );
-      if ( error )
+      /* We need at least 20 bytes per glyph. */
+      if ( p->cnt > p->size / 20 )
+      {
+        p->cnt = font->glyphs_size = p->size / 20;
+        FT_TRACE2(( "bdf_parse_start_: " ACMSG17, p->cnt ));
+      }
+
+      /* Make sure the number of glyphs is non-zero. */
+      if ( p->cnt == 0 )
+        font->glyphs_size = 64;
+
+      /* Limit ourselves to 1,114,112 glyphs in the font (this is the */
+      /* number of code points available in Unicode).                 */
+      if ( p->cnt >= 0x110000UL )
+      {
+        FT_ERROR(( "bdf_parse_start_: " ERRMSG5, lineno, "CHARS" ));
+        error = FT_THROW( Invalid_Argument );
         goto Exit;
-      FT_TRACE2(( "bdf_parse_start_: " ACMSG2, p->font->bbx.descent ));
+      }
 
-      *next = bdf_parse_glyphs_;
+      if ( FT_NEW_ARRAY( font->glyphs, font->glyphs_size ) )
+        goto Exit;
 
-      /* A special return value. */
-      error = -1;
+      p->flags |= BDF_GLYPHS_;
+      *next     = bdf_parse_glyphs_;
+
       goto Exit;
     }
 
@@ -2137,7 +2073,7 @@
   FT_LOCAL_DEF( FT_Error )
   bdf_load_font( FT_Stream       stream,
                  FT_Memory       memory,
-                 bdf_options_t*  opts,
+                 unsigned long   flags,
                  bdf_font_t*    *font )
   {
     unsigned long  lineno = 0; /* make compiler happy */
@@ -2149,7 +2085,7 @@
     if ( FT_NEW( p ) )
       goto Exit;
 
-    p->opts   = (bdf_options_t*)( opts ? opts : &bdf_opts_ );
+    p->flags  = flags;   /* comments, metrics, unencoded */
     p->minlb  = 32767;
     p->size   = stream->size;
     p->memory = memory;  /* only during font creation */
@@ -2179,7 +2115,7 @@
 
       /* Once the font has been loaded, adjust the overall font metrics if */
       /* necessary.                                                        */
-      if ( p->opts->correct_metrics != 0 &&
+      if ( p->flags & BDF_CORRECT_METRICS &&
            ( p->font->glyphs_used > 0 || p->font->unencoded_used > 0 ) )
       {
         if ( p->maxrb - p->minlb != p->font->bbx.width )
