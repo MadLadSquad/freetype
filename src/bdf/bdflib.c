@@ -51,9 +51,6 @@
 #define FT_COMPONENT  bdflib
 
 
-#define BUFSIZE  128
-
-
   /**************************************************************************
    *
    * Builtin BDF font properties.
@@ -425,9 +422,6 @@
     unsigned long  v;
 
 
-    if ( s == NULL || *s == 0 )
-      return 0;
-
     for ( v = 0; sbitset( ddigits, *s ); s++ )
     {
       if ( v < ( FT_ULONG_MAX - 9 ) / 10 )
@@ -450,16 +444,14 @@
     long  v, neg;
 
 
-    if ( s == NULL || *s == 0 )
-      return 0;
-
     /* Check for a minus sign. */
-    neg = 0;
     if ( *s == '-' )
     {
       s++;
-      neg = 1;
+      neg = -1;
     }
+    else
+      neg =  1;
 
     for ( v = 0; sbitset( ddigits, *s ); s++ )
     {
@@ -472,7 +464,7 @@
       }
     }
 
-    return ( !neg ) ? v : -v;
+    return neg * v;
   }
 
 
@@ -482,9 +474,6 @@
   {
     unsigned short  v;
 
-
-    if ( s == NULL || *s == 0 )
-      return 0;
 
     for ( v = 0; sbitset( ddigits, *s ); s++ )
     {
@@ -508,16 +497,14 @@
     short  v, neg;
 
 
-    if ( s == NULL || *s == 0 )
-      return 0;
-
     /* Check for a minus. */
-    neg = 0;
     if ( *s == '-' )
     {
       s++;
-      neg = 1;
+      neg = -1;
     }
+    else
+      neg =  1;
 
     for ( v = 0; sbitset( ddigits, *s ); s++ )
     {
@@ -530,7 +517,7 @@
       }
     }
 
-    return (short)( ( !neg ) ? v : -v );
+    return neg * v;
   }
 
 
@@ -858,34 +845,6 @@
     }
 
     font->props_used++;
-
-    /* Some special cases need to be handled here.  The DEFAULT_CHAR       */
-    /* property needs to be located if it exists in the property list, the */
-    /* FONT_ASCENT and FONT_DESCENT need to be assigned if they are        */
-    /* present, and the SPACING property should override the default       */
-    /* spacing.                                                            */
-    if ( _bdf_strncmp( name, "DEFAULT_CHAR", 12 ) == 0 )
-      font->default_char = fp->value.ul;
-    else if ( _bdf_strncmp( name, "FONT_ASCENT", 11 ) == 0 )
-      font->font_ascent = fp->value.l;
-    else if ( _bdf_strncmp( name, "FONT_DESCENT", 12 ) == 0 )
-      font->font_descent = fp->value.l;
-    else if ( _bdf_strncmp( name, "SPACING", 7 ) == 0 )
-    {
-      if ( !fp->value.atom )
-      {
-        FT_ERROR(( "bdf_add_property_: " ERRMSG8, lineno, "SPACING" ));
-        error = FT_THROW( Invalid_File_Format );
-        goto Exit;
-      }
-
-      if ( fp->value.atom[0] == 'p' || fp->value.atom[0] == 'P' )
-        font->spacing = BDF_PROPORTIONAL;
-      else if ( fp->value.atom[0] == 'm' || fp->value.atom[0] == 'M' )
-        font->spacing = BDF_MONOWIDTH;
-      else if ( fp->value.atom[0] == 'c' || fp->value.atom[0] == 'C' )
-        font->spacing = BDF_CHARCELL;
-    }
 
   Exit:
     return error;
@@ -1454,8 +1413,6 @@
       error = ft_hash_str_init( p->font->internal, memory );
       if ( error )
         goto Exit;
-      p->font->spacing      = BDF_PROPORTIONAL;  /* default */
-      p->font->default_char = ~0UL;
 
       goto Exit;
     }
@@ -1467,14 +1424,6 @@
     if ( !( p->flags & BDF_PROPS_ )                       &&
          _bdf_strncmp( line, "STARTPROPERTIES", 15 ) == 0 )
     {
-      if ( !( p->flags & BDF_FONT_BBX_ ) )
-      {
-        /* Missing the FONTBOUNDINGBOX field. */
-        FT_ERROR(( "bdf_parse_start_: " ERRMSG1, lineno, "FONTBOUNDINGBOX" ));
-        error = FT_THROW( Missing_Fontboundingbox_Field );
-        goto Exit;
-      }
-
       line             = bdf_strtok_( line, ' ' );
       font->props_size = bdf_atoul_( line );
 
@@ -1506,14 +1455,6 @@
     /* Check for the FONTBOUNDINGBOX field. */
     if ( _bdf_strncmp( line, "FONTBOUNDINGBOX", 15 ) == 0 )
     {
-      if ( !( p->flags & BDF_SIZE_ ) )
-      {
-        /* Missing the SIZE field. */
-        FT_ERROR(( "bdf_parse_start_: " ERRMSG1, lineno, "SIZE" ));
-        error = FT_THROW( Missing_Size_Field );
-        goto Exit;
-      }
-
       line               = bdf_strtok_( line, ' ' );
       font->bbx.width    = bdf_atous_( line );
       line               = bdf_strtok_( line, ' ' );
@@ -1569,6 +1510,7 @@
         break;
       case 'P':
       case 'p':
+      default:
         font->spacing = BDF_PROPORTIONAL;
         break;
       }
@@ -1581,14 +1523,6 @@
     /* Check for the SIZE field. */
     if ( _bdf_strncmp( line, "SIZE", 4 ) == 0 )
     {
-      if ( !( p->flags & BDF_FONT_NAME_ ) )
-      {
-        /* Missing the FONT field. */
-        FT_ERROR(( "bdf_parse_start_: " ERRMSG1, lineno, "FONT" ));
-        error = FT_THROW( Missing_Font_Field );
-        goto Exit;
-      }
-
       line               = bdf_strtok_( line, ' ' );
       font->point_size   = bdf_atoul_( line );
       line               = bdf_strtok_( line, ' ' );
@@ -1629,52 +1563,27 @@
     /* Check for the CHARS field */
     if ( _bdf_strncmp( line, "CHARS", 5 ) == 0 )
     {
-      char  nbuf[BUFSIZE];
-
-
+      /* Check the header for completeness before parsing glyphs. */
+      if ( !( p->flags & BDF_FONT_NAME_ ) )
+      {
+        /* Missing the FONT field. */
+        FT_ERROR(( "bdf_parse_start_: " ERRMSG1, lineno, "FONT" ));
+        error = FT_THROW( Missing_Font_Field );
+        goto Exit;
+      }
+      if ( !( p->flags & BDF_SIZE_ ) )
+      {
+        /* Missing the SIZE field. */
+        FT_ERROR(( "bdf_parse_start_: " ERRMSG1, lineno, "SIZE" ));
+        error = FT_THROW( Missing_Size_Field );
+        goto Exit;
+      }
       if ( !( p->flags & BDF_FONT_BBX_ ) )
       {
         /* Missing the FONTBOUNDINGBOX field. */
         FT_ERROR(( "bdf_parse_start_: " ERRMSG1, lineno, "FONTBOUNDINGBOX" ));
         error = FT_THROW( Missing_Fontboundingbox_Field );
         goto Exit;
-      }
-
-      /* Reserve space for artificial FONT_ASCENT or FONT_DESCENT. */
-      if ( font->props_size == 0 )
-      {
-        if ( FT_NEW_ARRAY( font->props, 2 ) )
-          goto Exit;
-
-        font->props_size = 2;
-      }
-
-      /* If the FONT_ASCENT or FONT_DESCENT properties have not been      */
-      /* encountered yet, then make sure they are added as properties and */
-      /* make sure they are set from the font bounding box info.          */
-      /*                                                                  */
-      /* This is *always* done regardless of the options, because X11     */
-      /* requires these two fields to compile fonts.                      */
-      if ( bdf_get_font_property( font, "FONT_ASCENT" ) == 0 )
-      {
-        font->font_ascent = font->bbx.ascent;
-        ft_snprintf( nbuf, BUFSIZE, "%hd", font->bbx.ascent );
-        error = bdf_add_property_( font, "FONT_ASCENT", nbuf, lineno );
-        if ( error )
-          goto Exit;
-
-        FT_TRACE2(( "bdf_parse_start_: " ACMSG1, font->bbx.ascent ));
-      }
-
-      if ( bdf_get_font_property( font, "FONT_DESCENT" ) == 0 )
-      {
-        font->font_descent = font->bbx.descent;
-        ft_snprintf( nbuf, BUFSIZE, "%hd", font->bbx.descent );
-        error = bdf_add_property_( font, "FONT_DESCENT", nbuf, lineno );
-        if ( error )
-          goto Exit;
-
-        FT_TRACE2(( "bdf_parse_start_: " ACMSG2, font->bbx.descent ));
       }
 
       line   = bdf_strtok_( line, ' ' );
@@ -1751,12 +1660,6 @@
 
     if ( p->font )
     {
-      /* If the font is not proportional, set the font's monowidth */
-      /* field to the width of the font bounding box.              */
-
-      if ( p->font->spacing != BDF_PROPORTIONAL )
-        p->font->monowidth = p->font->bbx.width;
-
       /* If the number of glyphs loaded is not that of the original count, */
       /* indicate the difference.                                          */
       if ( p->cnt != p->font->glyphs_used + p->font->unencoded_used )
@@ -1932,7 +1835,7 @@
 
     propid = ft_hash_str_lookup( name, font->internal );
 
-    return propid ? ( font->props + *propid ) : 0;
+    return propid ? ( font->props + *propid ) : NULL;
   }
 
 
